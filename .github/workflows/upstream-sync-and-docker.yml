@@ -37,7 +37,7 @@ jobs:
       
           # Upstream-Tag holen und setzen
           git fetch upstream tag "$TAG"
-          git tag "$TAG" upstream/"$TAG"
+          git tag "$TAG" "FETCH_HEAD"
       
           # Mit force pushen
           git push --force origin "$TAG"
