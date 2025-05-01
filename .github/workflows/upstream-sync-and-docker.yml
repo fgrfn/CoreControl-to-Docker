@@ -17,27 +17,24 @@ jobs:
       - name: Set Upstream
         run: |
           git remote add upstream https://github.com/crocofied/CoreControl.git
-          git fetch --tags upstream
-
+          git fetch upstream
+      
       - name: Get Latest Upstream Tag
         id: upstream_tag
         run: |
-          TAG=$(git tag --list | sort -V | tail -n 1)
+          TAG=$(git ls-remote --tags upstream | grep -o 'refs/tags/.*' | sed 's|refs/tags/||' | sort -V | tail -n 1)
           echo "latest_tag=$TAG" >> $GITHUB_OUTPUT
-
-      - name: Force Replace Tag from Upstream (if needed)
+      
+      - name: Force Replace Tag from Upstream
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-
+      
           TAG=${{ steps.upstream_tag.outputs.latest_tag }}
-
-          # Hole Upstream-Tag und überschreibe lokal
+      
           git fetch upstream tag $TAG
           git tag -d $TAG || true
           git tag $TAG upstream/$TAG
-
-          # Erzwinge Push
           git push --force origin $TAG
 
       - name: Log in to DockerHub
