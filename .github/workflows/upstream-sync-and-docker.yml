@@ -1,12 +1,12 @@
-name: Sync Upstream & Build Docker
+name: Sync Upstream Tags & Build Docker
 
 on:
   schedule:
-    - cron: '0 * * * *' # stündlich prüfen
+    - cron: '0 * * * *'  # stündlich
   workflow_dispatch:
 
 jobs:
-  sync-and-build:
+  sync-tags:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Fork
@@ -17,24 +17,45 @@ jobs:
       - name: Set Upstream
         run: |
           git remote add upstream https://github.com/crocofied/CoreControl.git
-          git fetch upstream
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
+          git fetch --tags upstream
 
-      - name: Merge Upstream
+      - name: Get Latest Upstream Tag
+        id: upstream_tag
         run: |
-          git merge --no-edit upstream/main || echo "No changes to merge"
-          git push origin main || echo "No changes pushed"
+          TAG=$(git tag --list | sort -V | tail -n 1)
+          echo "latest_tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Check if Tag Exists Locally
+        id: check_tag
+        run: |
+          if git rev-parse ${{ steps.upstream_tag.outputs.latest_tag }} >/dev/null 2>&1; then
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Merge & Tag if Not Exists
+        if: steps.check_tag.outputs.tag_exists == 'false'
+        run: |
+          git fetch upstream
+          git merge --no-edit upstream/main || true
+          git tag ${{ steps.upstream_tag.outputs.latest_tag }}
+          git push origin main
+          git push origin ${{ steps.upstream_tag.outputs.latest_tag }}
 
       - name: Log in to DockerHub
+        if: steps.check_tag.outputs.tag_exists == 'false'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and Push Docker Image
+        if: steps.check_tag.outputs.tag_exists == 'false'
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: fgrfn/corecontrol:latest
+          tags: |
+            fgrfn/corecontrol:latest
+            fgrfn/corecontrol:${{ steps.upstream_tag.outputs.latest_tag }}
