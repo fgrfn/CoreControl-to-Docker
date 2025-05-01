@@ -24,16 +24,16 @@ jobs:
         run: |
           TAG=$(git tag --list | sort -V | tail -n 1)
           echo "latest_tag=$TAG" >> $GITHUB_OUTPUT
-
-      - name: Check if Tag Exists Locally
+     
+      - name: Check if Tag Exists in Origin
         id: check_tag
         run: |
-          if git rev-parse ${{ steps.upstream_tag.outputs.latest_tag }} >/dev/null 2>&1; then
+          if git ls-remote --tags origin | grep "refs/tags/${{ steps.upstream_tag.outputs.latest_tag }}$"; then
             echo "tag_exists=true" >> $GITHUB_OUTPUT
           else
             echo "tag_exists=false" >> $GITHUB_OUTPUT
           fi
-
+    
       - name: Merge & Tag if Not Exists
         if: steps.check_tag.outputs.tag_exists == 'false'
         run: |
