@@ -25,24 +25,18 @@ jobs:
           TAG=$(git ls-remote --tags upstream | grep -o 'refs/tags/.*' | sed 's|refs/tags/||' | sort -V | tail -n 1)
           echo "latest_tag=$TAG" >> $GITHUB_OUTPUT
 
-      - name: Force Replace Tag from Upstream
+      - name: Force Push Latest Upstream Tag to Fork
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
 
           TAG=${{ steps.upstream_tag.outputs.latest_tag }}
 
-          # Alten lokalen Tag löschen
-          git tag -d "$TAG" 2>/dev/null || true
-
-          # Tag gezielt holen
+          # Hole Upstream-Tag direkt
           git fetch upstream tag "$TAG"
 
-          # Neu setzen auf FETCH_HEAD (der gerade geholte Tag)
-          git tag "$TAG" FETCH_HEAD
-
-          # In Fork pushen (erzwingen)
-          git push --force origin "$TAG"
+          # Force-Push 1:1 an origin (dein Fork)
+          git push --force origin "refs/tags/$TAG:refs/tags/$TAG"
 
       - name: Log in to DockerHub
         uses: docker/login-action@v3
