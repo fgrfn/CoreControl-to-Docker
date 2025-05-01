@@ -32,10 +32,15 @@ jobs:
       
           TAG=${{ steps.upstream_tag.outputs.latest_tag }}
       
-          git fetch upstream tag $TAG
-          git tag -d $TAG || true
-          git tag $TAG upstream/$TAG
-          git push --force origin $TAG
+          # Lokalen Tag löschen, bevor fetch versucht ihn zu überschreiben
+          git tag -d "$TAG" 2>/dev/null || true
+      
+          # Upstream-Tag holen und setzen
+          git fetch upstream tag "$TAG"
+          git tag "$TAG" upstream/"$TAG"
+      
+          # Mit force pushen
+          git push --force origin "$TAG"
 
       - name: Log in to DockerHub
         uses: docker/login-action@v3
