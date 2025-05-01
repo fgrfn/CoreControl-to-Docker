@@ -1,0 +1,40 @@
+name: Sync Upstream & Build Docker
+
+on:
+  schedule:
+    - cron: '0 * * * *' # stündlich prüfen
+  workflow_dispatch:
+
+jobs:
+  sync-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Fork
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set Upstream
+        run: |
+          git remote add upstream https://github.com/crocofied/CoreControl.git
+          git fetch upstream
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+      - name: Merge Upstream
+        run: |
+          git merge --no-edit upstream/main || echo "No changes to merge"
+          git push origin main || echo "No changes pushed"
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: fgrfn/corecontrol:latest
