@@ -1,45 +1,71 @@
-name: Sync Upstream Tags & Build Docker
+name: Build & Push Docker Only on Upstream Change
 
 on:
   schedule:
-    - cron: '0 * * * *'  # stündlich prüfen
+    - cron: '0 * * * *' # stündlich prüfen
   workflow_dispatch:
 
 jobs:
-  sync-tags:
+  check-and-build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Fork
+      - name: Checkout Repo
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Set Upstream
+      - name: Add and Fetch Upstream
         run: |
           git remote add upstream https://github.com/crocofied/CoreControl.git
-          git fetch upstream
+          git fetch --tags upstream
 
-      - name: Get Latest Upstream Tag
+      - name: Get Latest Tag from Upstream
         id: upstream_tag
         run: |
           TAG=$(git ls-remote --tags upstream | grep -o 'refs/tags/.*' | sed 's|refs/tags/||' | sort -V | tail -n 1)
           echo "latest_tag=$TAG" >> $GITHUB_OUTPUT
 
-      - name: Force Push Latest Upstream Tag to Fork
+      - name: Compare Upstream with Origin
+        id: compare
+        run: |
+          LOCAL_SHA=$(git rev-parse origin/main)
+          UPSTREAM_SHA=$(git rev-parse upstream/main)
+          echo "local_sha=$LOCAL_SHA" >> $GITHUB_OUTPUT
+          echo "upstream_sha=$UPSTREAM_SHA" >> $GITHUB_OUTPUT
+          if [ "$LOCAL_SHA" != "$UPSTREAM_SHA" ]; then
+            echo "update_required=true" >> $GITHUB_OUTPUT
+          else
+            echo "update_required=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Exit if No Update Needed
+        if: steps.compare.outputs.update_required == 'false'
+        run: |
+          echo "No changes in upstream. Skipping build."
+          exit 0
+
+      - name: Check if Docker Image with Tag Exists
+        id: tag_exists
+        run: |
+          TAG=${{ steps.upstream_tag.outputs.latest_tag }}
+          if docker manifest inspect fgrfn/corecontrol:$TAG > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Exit if Image Already Exists
+        if: steps.tag_exists.outputs.exists == 'true'
+        run: |
+          echo "Docker image with tag already exists. Skipping build."
+          exit 0
+
+      - name: Merge Upstream into Fork
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-      
-          TAG=${{ steps.upstream_tag.outputs.latest_tag }}
-      
-          # 🔥 Lokalen Tag löschen, falls vorhanden
-          git tag -d "$TAG" 2>/dev/null || true
-      
-          # 💡 Hol Upstream-Tag frisch
-          git fetch upstream "refs/tags/$TAG:refs/tags/$TAG"
-      
-          # 🚀 Push ihn hart in deinen Fork
-          git push --force origin "refs/tags/$TAG:refs/tags/$TAG"
+          git merge upstream/main --allow-unrelated-histories --no-edit || true
+          git push origin main
 
       - name: Log in to DockerHub
         uses: docker/login-action@v3
