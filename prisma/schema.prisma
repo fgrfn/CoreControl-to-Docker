@@ -6,6 +6,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x"]
 }
 
 datasource db {
@@ -40,6 +41,8 @@ model server_history {
   cpuUsage      String?
   ramUsage      String?
   diskUsage     String?
+  gpuUsage      String?
+  temp          String?
   createdAt     DateTime  @default(now())
 }
 
@@ -63,6 +66,8 @@ model server {
   diskUsage     String?
   online        Boolean   @default(true)
   uptime        String?
+  gpuUsage      String?
+  temp          String?
 }
 
 model settings {
@@ -100,6 +105,7 @@ model notification {
   pushoverUrl   String?
   pushoverToken String?
   pushoverUser  String?
+  echobellURL   String?
 }
 
 model test_notification {
