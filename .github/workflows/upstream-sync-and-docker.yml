@@ -18,28 +18,30 @@ jobs:
         run: |
           git remote add upstream https://github.com/crocofied/CoreControl.git
           git fetch upstream
-      
+
       - name: Get Latest Upstream Tag
         id: upstream_tag
         run: |
           TAG=$(git ls-remote --tags upstream | grep -o 'refs/tags/.*' | sed 's|refs/tags/||' | sort -V | tail -n 1)
           echo "latest_tag=$TAG" >> $GITHUB_OUTPUT
-      
+
       - name: Force Replace Tag from Upstream
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-      
+
           TAG=${{ steps.upstream_tag.outputs.latest_tag }}
-      
-          # Lokalen Tag löschen, bevor fetch versucht ihn zu überschreiben
+
+          # Alten lokalen Tag löschen
           git tag -d "$TAG" 2>/dev/null || true
-      
-          # Upstream-Tag holen und setzen
+
+          # Tag gezielt holen
           git fetch upstream tag "$TAG"
-          git tag "$TAG" "FETCH_HEAD"
-      
-          # Mit force pushen
+
+          # Neu setzen auf FETCH_HEAD (der gerade geholte Tag)
+          git tag "$TAG" FETCH_HEAD
+
+          # In Fork pushen (erzwingen)
           git push --force origin "$TAG"
 
       - name: Log in to DockerHub
